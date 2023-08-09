@@ -6,20 +6,17 @@ import "../interface/IAttestationModule.sol";
 import "../utils/Bytecode.sol";
 
 contract ProtectWithdrawl is IGuard {
-    address public immutable i_atestamint;
-
     bool public initialized;
 
     address private safe;
     address private attestationModule;
 
-    constructor(address atestamint) {
-        i_atestamint = atestamint;
+    constructor() {
         initialized = false;
     }
 
     modifier onlyAtestamint() {
-        require(msg.sender == i_atestamint, "Inavlid sender");
+        // require(msg.sender == i_atestamint, "Inavlid sender");
         _;
     }
     modifier onlyOnce() {

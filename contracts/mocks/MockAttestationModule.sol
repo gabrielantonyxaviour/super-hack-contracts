@@ -11,7 +11,7 @@ import {IWorldID} from "../interface/IWorldID.sol";
 
 import "../interface/IGnosisSafe.sol";
 
-contract AttestationModule is SignatureDecoder {
+contract MockAttestationModule is SignatureDecoder {
     using ByteHasher for bytes;
 
     /// @notice Thrown when attempting to reuse a nullifier
@@ -50,6 +50,13 @@ contract AttestationModule is SignatureDecoder {
         //     .hashToField();
     }
 
+    event Voted(
+        address indexed voter,
+        uint256 indexed tokenId,
+        uint256 nulllifierHash,
+        bool isPositive
+    );
+
     modifier onlyOnce() {
         require(!initialized, "Already initialized");
         _;
@@ -72,8 +79,10 @@ contract AttestationModule is SignatureDecoder {
         address signal,
         uint256 root,
         uint256 nullifierHash,
-        uint256[8] calldata proof
+        uint256[8] calldata proof,
+        bool isPositive
     ) public {
+        emit Voted(msg.sender, tokenId, nullifierHash, isPositive);
         // require(uniqueHumanVoted[nullifierHash] == false, "Unique Human voted");
         // require(
         //     IERC721(nftContract).ownerOf(tokenId) == msg.sender,

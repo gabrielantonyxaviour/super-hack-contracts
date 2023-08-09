@@ -22,6 +22,10 @@ module.exports = {
   solidity: {
     compilers: [
       {
+        version: "0.8.19",
+        settings: SOLC_SETTINGS,
+      },
+      {
         version: "0.8.10",
         settings: SOLC_SETTINGS,
       },
@@ -62,6 +66,8 @@ module.exports = {
     // to get exact network names: npx hardhat verify --list-networks
     apiKey: {
       goerli: networks.goerli.verifyApiKey,
+      polygonMumbai: networks.polygonMumbai.verifyApiKey,
+      optimisticGoerli: networks.optimisticGoerli.verifyApiKey,
     },
   },
   gasReporter: {

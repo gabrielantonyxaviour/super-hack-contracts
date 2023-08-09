@@ -14,7 +14,7 @@ task("verify-contract", "Verifies contract")
       console.log("\nVerifying contract...");
       await run("verify:verify", {
         address: taskArgs.contract,
-        constructorArguments: [networks[network.name].ZORA_NFT_CREATOR_PROXY],
+        constructorArguments: [],
       });
       console.log("Contract verified");
     } catch (error) {
