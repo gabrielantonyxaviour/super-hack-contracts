@@ -9,32 +9,48 @@ task("deploy-safe-test", "Deploys SafeTest contract ").setAction(
         'This command cannot be used on a local development chain.  Specify a valid network or simulate an Functions request locally with "npx hardhat functions-simulate".'
       );
     }
-    const zora = await ethers.getContractFactory("SafeTest");
-    const zoraFactoryAddress = networks[network.name].SAFE_IMPLEMENTATION;
+    const safeTest = await ethers.getContractFactory("SafeTest");
+    const safeImplementationAddress =
+      networks[network.name].SAFE_IMPLEMENTATION;
+    const safeProxyFactory = networks[network.name].SAFE_PROXY_FACTORY;
     const attestationModuleImplementation =
-      "0xFFaFc5fEF5A0Fd9b0137B464BE69A85Ae4bfDc36";
-    const zoraContract = await zora.deploy(
-      zoraFactoryAddress,
+      networks[network.name].ATTESTATION_MODULE_IMPLEMENTATION;
+    const guardImplementation = networks[network.name].GUARD_IMPLEMENTATION;
+
+    console.log("SAFE IMPLEMENTATION: ", safeImplementationAddress);
+    console.log("SAFE PROXY FACTORY: ", safeProxyFactory);
+    console.log(
+      "ATTESTATION MODULE IMPLEMENTATION: ",
       attestationModuleImplementation
     );
+    console.log("GUARD IMPLEMENTATION: ", guardImplementation);
+    const safeTestContract = await safeTest.deploy(
+      safeProxyFactory,
+      safeImplementationAddress,
+      attestationModuleImplementation,
+      guardImplementation
+    );
+
     console.log(
       `\nWaiting ${
         networks[network.name].WAIT_BLOCK_CONFIRMATIONS
       } blocks for transaction ${
-        zoraContract.deployTransaction.hash
+        safeTestContract.deployTransaction.hash
       } to be confirmed...`
     );
 
-    await zoraContract.deployTransaction.wait(
+    await safeTestContract.deployTransaction.wait(
       networks[network.name].WAIT_BLOCK_CONFIRMATIONS
     );
     console.log("\nVerifying contract...");
     try {
       await run("verify:verify", {
-        address: zoraContract.address,
+        address: safeTestContract.address,
         constructorArguments: [
-          zoraFactoryAddress,
+          safeProxyFactory,
+          safeImplementationAddress,
           attestationModuleImplementation,
+          guardImplementation,
         ],
       });
       console.log("Contract verified");
@@ -49,7 +65,7 @@ task("deploy-safe-test", "Deploys SafeTest contract ").setAction(
       }
     }
     console.log(
-      `SafeTest contract deployed to ${zoraContract.address} on ${network.name}`
+      `SafeTest contract deployed to ${safeTestContract.address} on ${network.name}`
     );
   }
 );

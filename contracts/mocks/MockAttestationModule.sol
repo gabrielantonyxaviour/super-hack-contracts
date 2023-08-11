@@ -82,6 +82,7 @@ contract MockAttestationModule is SignatureDecoder {
         uint256[8] calldata proof,
         bool isPositive
     ) public {
+        require(request.schema == schemaId, "Invalid schema");
         emit Voted(msg.sender, tokenId, nullifierHash, isPositive);
         // require(uniqueHumanVoted[nullifierHash] == false, "Unique Human voted");
         // require(

@@ -1,23 +1,18 @@
 pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/utils/Create2.sol";
+import "./interface/ISafeProxyFactory.sol";
 
 contract SafeTest {
-    address public immutable i_safeImplementation;
+    ISafeProxyFactory public immutable i_safeProxyFactory;
     address public immutable i_moduleImplementation;
+    address public immutable i_safeImplementation;
+    address public immutable i_guardImplementation;
     bytes4 public constant SET_GUARD_METHOD_ID =
         bytes4(keccak256("setGuard(address)"));
-    bytes4 public constant SETUP_MODULES_METHOD_ID =
-        bytes4(keccak256("setupModules(address,bytes)"));
+    
     bytes4 public constant ENABLE_MODULE_METHOD_ID =
         bytes4(keccak256("enableModule(address)"));
-    bytes4 public constant SETUP_MODULE_METHOD_ID =
-        bytes4(keccak256("setup(address,address,bytes32)"));
-    bytes4 public constant SETUP_SAFE_METHOD_ID =
-        bytes4(
-            keccak256(
-                "setup(address[],uint256,address,bytes,address,address,uint256,address)"
-            )
-        );
+    
     bytes4 public constant EXECTRANSACTION_METHOD_ID =
         bytes4(
             keccak256(
@@ -25,72 +20,54 @@ contract SafeTest {
             )
         );
 
-    constructor(address safeImplementation, address moduleImplementation) {
-        i_safeImplementation = safeImplementation;
+    constructor(
+        ISafeProxyFactory safeProxyFactory,
+        address safeImplementation,
+        address moduleImplementation,
+        address guardImplementation
+    ) {
+        i_safeProxyFactory = safeProxyFactory;
+        i_safeImplementation=safeImplementation;
         i_moduleImplementation = moduleImplementation;
+        i_guardImplementation=guardImplementation;
     }
 
-    function deploySafe(uint salt, bytes calldata signature) public {
-        address safeAddress = _deployProxy(
-            i_safeImplementation,
-            msg.sender,
-            salt
-        );
+    event SafeSetupCompleted(
+        address indexed creator,
+        address indexed safeAddress,
+        address indexed moduleAddress,
+        address guardAddress
+    );
+    function deploySafe(uint salt, bytes[2] calldata signatures) public {
+
+        // Deploy Module
         address moduleAddress = _deployProxy(
             i_moduleImplementation,
             msg.sender,
             salt
         );
-
-        bytes memory setupData = abi.encodeWithSelector(
-            SETUP_MODULE_METHOD_ID,
+         address guardAddress = _deployProxy(
+            i_guardImplementation,
             msg.sender,
-            moduleAddress,
-            bytes32(0)
+            salt
         );
+        // Create Safe and setupModules
+        GnosisSafeProxy safe=_deploySafe(moduleAddress,salt);
+        
+        // Enable Module
+        _enableModule(address(safe), guardAddress, signatures[0]);
 
-        bytes memory enableModuleData = abi.encodeWithSelector(
-            ENABLE_MODULE_METHOD_ID,
-            moduleAddress
-        );
+        // Set Guard
+        _setGuard(address(safe), guardAddress, signatures[1]);
 
-        safeAddress.call(
-            abi.encodeWithSelector(
-                SETUP_SAFE_METHOD_ID,
-                [msg.sender],
-                1,
-                moduleAddress,
-                setupData,
-                address(0),
-                address(0),
-                0,
-                address(0)
-            )
-        );
-
-        // safeAddress.call(
-        //     abi.encodeWithSelector(
-        //         EXECTRANSACTION_METHOD_ID,
-        //         safeAddress,
-        //         0,
-        //         enableModuleData,
-        //         0,
-        //         0,
-        //         0,
-        //         0,
-        //         address(0),
-        //         payable(address(0)),
-
-        //     )
-        // );
-        // safeAddress.call();
+        emit SafeSetupCompleted(msg.sender, address(safe), moduleAddress, guardAddress);
     }
 
     function _deployProxy(
         address implementation,
         address creator,
         uint salt
-    ) public returns (address _contractAddress) {
+    ) internal returns (address _contractAddress) {
         bytes memory code = _creationCode(implementation, creator, salt);
         _contractAddress = Create2.computeAddress(
             bytes32(salt),
@@ -114,4 +91,73 @@ contract SafeTest {
                 abi.encode(salt_, _creator)
             );
     }
+
+    function _enableModule(address safe,address guardAddress,bytes calldata signatures) internal {
+        bytes memory enableModuleData = abi.encodeWithSelector(
+            ENABLE_MODULE_METHOD_ID,
+            guardAddress
+        );
+        (bool success,)=address(safe).call(
+            abi.encodeWithSelector(
+                EXECTRANSACTION_METHOD_ID,
+                address(safe),
+                0,
+                enableModuleData,
+                0,
+                0,
+                0,
+                0,
+                address(0),
+                address(0),
+                signatures
+            )
+        );
+        require(success,"Enable Module Failed");
+    }
+        bytes4 public constant SETUP_MODULES_METHOD_ID =
+        bytes4(keccak256("setupModules(address,bytes)"));
+    bytes4 public constant SETUP_SAFE_METHOD_ID =
+        bytes4(
+            keccak256(
+                "setup(address[],uint256,address,bytes,address,address,uint256,address)"
+            )
+        );
+    function _deploySafe(address moduleAddress,uint salt) internal returns(GnosisSafeProxy){
+            bytes memory setupModulesData = abi.encodeWithSelector(
+                SETUP_MODULES_METHOD_ID,
+                moduleAddress,
+                ""
+            );
+    
+            return i_safeProxyFactory.createProxyWithNonce(i_safeImplementation,abi.encodeWithSelector(
+                    SETUP_SAFE_METHOD_ID,
+                    [msg.sender],
+                    1,
+                    moduleAddress,
+                    setupModulesData,
+                    address(0),
+                    address(0),
+                    0,
+                    address(0)
+                ),salt);
+        }
+        function _setGuard(address safe,address guardAddress,bytes calldata signature) internal {
+            bytes memory setGuardData=abi.encodeWithSelector(SET_GUARD_METHOD_ID,guardAddress);
+            (bool success,)=address(safe).call(
+                abi.encodeWithSelector(
+                    EXECTRANSACTION_METHOD_ID,
+                    address(safe),
+                    0,
+                    setGuardData,
+                    0,
+                    0,
+                    0,
+                    0,
+                    address(0),
+                    address(0),
+                    signature
+                )
+            );
+            require(success,"Set Guard Failed");
+        }
 }

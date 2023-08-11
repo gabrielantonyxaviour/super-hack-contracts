@@ -3,11 +3,9 @@ pragma solidity ^0.8.7;
 import "./interface/IZoraFactory.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 
-contract Atestamint {
+contract AtestamintV2 {
     IZoraFactory public immutable i_zoraNftFactory;
-    address public immutable i_safeImplementation;
-    address public immutable i_guardImplementation;
-    address public immutable i_moduleImplementation;
+    address public immutable i_vaultImplementation;
 
     struct CreateDropInputParams {
         string name;
@@ -32,113 +30,91 @@ contract Atestamint {
         uint salt;
     }
 
+    bytes4 public constant SETUP_VAULT_METHOD_ID = bytes4(keccak256("setup(address,address,uint256)"));
+
     constructor(
         IZoraFactory zoraNftFactory,
-        address safeImplementation,
-        address guardImplementation,
-        address moduleImplementation
+        address vaultImplementation
     ) {
         i_zoraNftFactory = zoraNftFactory;
-        i_safeImplementation = safeImplementation;
-        i_guardImplementation = guardImplementation;
-        i_moduleImplementation = moduleImplementation;
+        i_vaultImplementation = vaultImplementation;
     }
 
     event EditionCreated(
-        address indexed creator,
-        address indexed editionAddress
+        address  creator,
+        address  editionAddress,
+        address vaultAddress
     );
-    event DropCreated(address indexed creator, address indexed dropAddress);
+    event DropCreated(address  creator, address  dropAddress,address vaultAddress);
 
-    event GuardDeployed(address guardAddress);
-    event ModuleDeployed(address moduleAddress);
-    event SafeDeployed(address safeAddress);
 
     function createDropCollection(
         CreateDropInputParams memory inputParams
     ) public {
-        address guardAddress = _deployProxy(
-            i_guardImplementation,
-            msg.sender,
+        address vaultAddress = _deployProxy(
+            i_vaultImplementation,
             inputParams.salt
         );
-
-        address moduleAddress = _deployProxy(
-            i_moduleImplementation,
-            msg.sender,
-            inputParams.salt
-        );
-
-        address safeAddress = _deployProxy(
-            i_safeImplementation,
-            msg.sender,
-            inputParams.salt
-        );
-        
+    
         address dropAddress = i_zoraNftFactory.createDrop(
             inputParams.name,
             inputParams.symbol,
-            safeAddress,
+            vaultAddress,
             inputParams.editionSize,
             inputParams.royaltyBPS,
-            payable(safeAddress),
+            payable(vaultAddress),
             inputParams.saleConfig,
             inputParams.metadataURIBase,
             inputParams.metadataContractURI
         );
-
-        emit DropCreated(msg.sender, dropAddress);
+        bytes memory setupData=abi.encodeWithSelector(
+                    SETUP_VAULT_METHOD_ID,
+                   dropAddress,
+                   msg.sender,
+                   inputParams.editionSize
+                );
+        (bool success, ) =vaultAddress.call(setupData);
+        require(success,"Setup Failed");
+        emit DropCreated(msg.sender, dropAddress,vaultAddress);
     }
 
     function createEditionCollection(
         CreateEditionInputParams memory inputParams
     ) public {
-        address guardAddress = _deployProxy(
-            i_guardImplementation,
-            msg.sender,
+        
+  address vaultAddress = _deployProxy(
+            i_vaultImplementation,
             inputParams.salt
         );
-
-        address moduleAddress = _deployProxy(
-            i_moduleImplementation,
-            msg.sender,
-            inputParams.salt
-        );
-
-        address safeAddress = _deployProxy(
-            i_safeImplementation,
-            msg.sender,
-            inputParams.salt
-        );
-        // bytes4 methodId = bytes4(keccak256("setup(address,address)"));
-        // (bool success, ) = guardAddress.call(
-        //     abi.encodeWithSelector(methodId, safeAddress, moduleAddress)
-        // );
-        // if (!success) {
-        //     revert("Create Failed");
-        // }
+  
         address editionAddress = i_zoraNftFactory.createEdition(
             inputParams.name,
             inputParams.symbol,
             inputParams.editionSize,
             inputParams.royaltyBPS,
-            payable(safeAddress),
-            safeAddress,
+            payable(vaultAddress),
+            vaultAddress,
             inputParams.saleConfig,
             inputParams.description,
             inputParams.animationURI,
             inputParams.imageURI
         );
-
-        emit EditionCreated(msg.sender, editionAddress);
+        bytes memory setupData=abi.encodeWithSelector(
+                    SETUP_VAULT_METHOD_ID,
+            editionAddress,
+                   msg.sender,
+                   inputParams.editionSize
+                );
+        (bool success, ) =vaultAddress.call(setupData);
+        require(success,"Setup Failed");
+        emit EditionCreated(msg.sender, editionAddress,vaultAddress);
     }
 
     function _deployProxy(
         address implementation,
-        address creator,
         uint salt
     ) public returns (address _contractAddress) {
-        bytes memory code = _creationCode(implementation, creator, salt);
+        bytes memory code = _creationCode(implementation, salt);
         _contractAddress = Create2.computeAddress(
             bytes32(salt),
             keccak256(code)
@@ -150,7 +126,6 @@ contract Atestamint {
 
     function _creationCode(
         address implementation_,
-        address _creator,
         uint256 salt_
     ) internal pure returns (bytes memory) {
         return
@@ -158,7 +133,7 @@ contract Atestamint {
                 hex"3d60ad80600a3d3981f3363d3d373d3d3d363d73",
                 implementation_,
                 hex"5af43d82803e903d91602b57fd5bf3",
-                abi.encode(salt_, _creator)
+                abi.encode(salt_)
             );
     }
 }
