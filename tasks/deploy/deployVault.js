@@ -20,7 +20,10 @@ task("deploy-vault", "Deploys Vault contract ").setAction(
       worldId,
       appId,
       actionId,
-      atestamint
+      atestamint,
+      {
+        gasPrice: 200000,
+      }
     );
 
     console.log(

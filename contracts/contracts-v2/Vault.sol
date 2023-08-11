@@ -92,55 +92,56 @@ contract Vault is SchemaResolver {
         Attestation calldata attestation,
         uint256 /*value*/
     ) internal override returns (bool) {
-        (
-            address _nftContract,
-            uint256 tokenId,
-            string memory description,
-            bool isPositive,
-            address signal,
-            uint256 root,
-            uint256 nullifierHash,
-            uint256[8] memory proof
-        ) = abi.decode(
-                attestation.data,
-                (
-                    address,
-                    uint256,
-                    string,
-                    bool,
-                    address,
-                    uint256,
-                    uint256,
-                    uint256[8]
-                )
-            );
-        emit TestingData(
-            _nftContract,
+        return true;
+    }
+
+    function vote(
+        uint256 tokenId,
+        string memory description,
+        bool isPositive,
+        address signal,
+        uint256 root,
+        uint256 nullifierHash,
+        uint256[8] memory proof
+    ) public payable {
+        _verifyConditions(
+            nftContract,
+            msg.sender,
+            schemaId,
             tokenId,
-            description,
-            isPositive,
-            signal,
-            root,
-            nullifierHash,
-            proof
+            nullifierHash
         );
-        // _verifyConditions(
-        //     _nftContract,
-        //     attestation.attester,
-        //     attestation.schema,
-        //     tokenId,
-        //     nullifierHash
-        // );
-        // _verifyUniqueHuman(signal, root, nullifierHash, proof);
-        // tokenIdVoted[tokenId] = true;
-        // uniqueHumanVoted[nullifierHash] = true;
-        // if (isPositive == true) {
-        //     positiveVotes += 1;
-        // } else {
-        //     negativeVotes += 1;
-        // }
-        // emit Voted(msg.sender, tokenId, description, nullifierHash, isPositive);
-        // return true;
+        _verifyUniqueHuman(signal, root, nullifierHash, proof);
+        attestEAS(tokenId, description, isPositive);
+        tokenIdVoted[tokenId] = true;
+        uniqueHumanVoted[nullifierHash] = true;
+        if (isPositive == true) {
+            positiveVotes += 1;
+        } else {
+            negativeVotes += 1;
+        }
+
+        emit Voted(msg.sender, tokenId, description, nullifierHash, isPositive);
+    }
+
+    function attestEAS(
+        uint256 tokenId,
+        string memory description,
+        bool isPositive
+    ) public payable {
+        AttestationRequestData memory requestData = AttestationRequestData(
+            address(this),
+            type(uint64).max,
+            false,
+            bytes32(0),
+            abi.encode(nftContract, tokenId, description, isPositive),
+            msg.value
+        );
+        AttestationRequest memory request = AttestationRequest(
+            schemaId,
+            requestData
+        );
+        i_eas.attest(request);
     }
 
     function onRevoke(
