@@ -21,7 +21,7 @@ contract Vault is SchemaResolver {
     address public nftContract;
     address public creator;
     address public immutable i_atestamint;
-    bytes32 public schemaId;
+    bytes32 public immutable i_schemaId;
     uint public editionSize;
     bool public initialized;
     uint public positiveVotes = 0;
@@ -49,9 +49,11 @@ contract Vault is SchemaResolver {
         IWorldID _worldId,
         string memory _appId,
         string memory _actionId,
-        address _atestamint
+        address _atestamint,
+        bytes32 schemaId
     ) SchemaResolver(eas) {
         i_eas = eas;
+        i_schemaId = schemaId;
         worldId = _worldId;
         externalNullifier = abi
             .encodePacked(abi.encodePacked(_appId).hashToField(), _actionId)
@@ -67,13 +69,11 @@ contract Vault is SchemaResolver {
     function setup(
         address _nftContract,
         address _creator,
-        uint256 _editionSize,
-        bytes32 _schemaId
+        uint256 _editionSize
     ) public onlyOnce {
         nftContract = _nftContract;
         creator = _creator;
         editionSize = _editionSize;
-        schemaId = _schemaId;
         initialized = true;
     }
 
@@ -91,7 +91,14 @@ contract Vault is SchemaResolver {
     function onAttest(
         Attestation calldata attestation,
         uint256 /*value*/
-    ) internal override returns (bool) {
+    ) internal pure override returns (bool) {
+        return true;
+    }
+
+    function onRevoke(
+        Attestation calldata /*attestation*/,
+        uint256 /*value*/
+    ) internal pure override returns (bool) {
         return true;
     }
 
@@ -104,15 +111,9 @@ contract Vault is SchemaResolver {
         uint256 nullifierHash,
         uint256[8] memory proof
     ) public payable {
-        _verifyConditions(
-            nftContract,
-            msg.sender,
-            schemaId,
-            tokenId,
-            nullifierHash
-        );
+        _verifyConditions(nftContract, msg.sender, tokenId, nullifierHash);
         _verifyUniqueHuman(signal, root, nullifierHash, proof);
-        attestEAS(tokenId, description, isPositive);
+        _attestEAS(tokenId, description, isPositive);
         tokenIdVoted[tokenId] = true;
         uniqueHumanVoted[nullifierHash] = true;
         if (isPositive == true) {
@@ -124,11 +125,11 @@ contract Vault is SchemaResolver {
         emit Voted(msg.sender, tokenId, description, nullifierHash, isPositive);
     }
 
-    function attestEAS(
+    function _attestEAS(
         uint256 tokenId,
         string memory description,
         bool isPositive
-    ) public payable {
+    ) internal {
         AttestationRequestData memory requestData = AttestationRequestData(
             address(this),
             type(uint64).max,
@@ -138,27 +139,18 @@ contract Vault is SchemaResolver {
             msg.value
         );
         AttestationRequest memory request = AttestationRequest(
-            schemaId,
+            i_schemaId,
             requestData
         );
         i_eas.attest(request);
     }
 
-    function onRevoke(
-        Attestation calldata /*attestation*/,
-        uint256 /*value*/
-    ) internal pure override returns (bool) {
-        return true;
-    }
-
     function _verifyConditions(
         address _nftContract,
         address attester,
-        bytes32 _schemaId,
         uint256 tokenId,
         uint256 nullifierHash
     ) internal view {
-        require(_schemaId == schemaId, "Invalid Schema");
         require(
             IERC721(_nftContract).ownerOf(tokenId) == attester,
             "Not owner"
@@ -172,7 +164,7 @@ contract Vault is SchemaResolver {
         uint256 root,
         uint256 nullifierHash,
         uint256[8] memory proof
-    ) public {
+    ) internal {
         worldId.verifyProof(
             root,
             groupId,
@@ -181,27 +173,6 @@ contract Vault is SchemaResolver {
             externalNullifier,
             proof
         );
-    }
-
-    function attestEAS(
-        string calldata description,
-        bool isPositive,
-        bytes32 refuid,
-        uint value
-    ) public payable {
-        AttestationRequestData memory requestData = AttestationRequestData(
-            address(this),
-            type(uint64).max,
-            false,
-            bytes32(0),
-            abi.encode(msg.sender, description, isPositive),
-            value
-        );
-        AttestationRequest memory request = AttestationRequest(
-            refuid,
-            requestData
-        );
-        i_eas.attest(request);
     }
 
     function unlockFunds() public {
