@@ -11,16 +11,7 @@ task("deploy-atestamint-v2", "Deploys AtestamintV2 contract").setAction(
     }
     const zora = await ethers.getContractFactory("AtestamintV2");
     const zoraFactory = networks[network.name].ZORA_NFT_CREATOR_PROXY;
-    const safeImplementation = networks[network.name].SAFE_IMPLEMENTATION;
-    const guardImplementation = "0xeD7B819cde5C9aE1BC529268e9aebb370bc5B84a";
-    const moduleImplementation = "0xb65B773d773c7a7f2F378C71787Db7d7c32f687c";
-    const zoraContract = await zora.deploy(
-      zoraFactory,
-      safeImplementation,
-      guardImplementation,
-      moduleImplementation,
-      { gasPrice: 300000 }
-    );
+    const zoraContract = await zora.deploy(zoraFactory, { gasPrice: 300000 });
     console.log(
       `\nWaiting 3 blocks for transaction ${zoraContract.deployTransaction.hash} to be confirmed...`
     );
@@ -32,12 +23,7 @@ task("deploy-atestamint-v2", "Deploys AtestamintV2 contract").setAction(
     try {
       await run("verify:verify", {
         address: zoraContract.address,
-        constructorArguments: [
-          zoraFactory,
-          safeImplementation,
-          guardImplementation,
-          moduleImplementation,
-        ],
+        constructorArguments: [zoraFactory],
       });
       console.log("Contract verified");
     } catch (error) {
@@ -51,7 +37,7 @@ task("deploy-atestamint-v2", "Deploys AtestamintV2 contract").setAction(
       }
     }
     console.log(
-      `AttestationModule deployed to ${zoraContract.address} on ${network.name}`
+      `AtestamintV2 deployed to ${zoraContract.address} on ${network.name}`
     );
   }
 );

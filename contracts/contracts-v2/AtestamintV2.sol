@@ -5,7 +5,9 @@ import "@openzeppelin/contracts/utils/Create2.sol";
 
 contract AtestamintV2 {
     IZoraFactory public immutable i_zoraNftFactory;
-    address public immutable i_vaultImplementation;
+    address public vaultImplementation;
+    address public admin;
+    bytes32 public schemaId;
 
     struct CreateDropInputParams {
         string name;
@@ -30,32 +32,48 @@ contract AtestamintV2 {
         uint salt;
     }
 
-    bytes4 public constant SETUP_VAULT_METHOD_ID = bytes4(keccak256("setup(address,address,uint256)"));
+    bytes4 public constant SETUP_VAULT_METHOD_ID =
+        bytes4(keccak256("setup(address,address,uint256,address,bytes32)"));
 
-    constructor(
-        IZoraFactory zoraNftFactory,
-        address vaultImplementation
-    ) {
+    constructor(IZoraFactory zoraNftFactory) {
         i_zoraNftFactory = zoraNftFactory;
-        i_vaultImplementation = vaultImplementation;
+        admin = msg.sender;
     }
 
     event EditionCreated(
-        address  creator,
-        address  editionAddress,
+        address creator,
+        address editionAddress,
         address vaultAddress
     );
-    event DropCreated(address  creator, address  dropAddress,address vaultAddress);
+    event DropCreated(
+        address creator,
+        address dropAddress,
+        address vaultAddress
+    );
 
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Invalid sender");
+        _;
+    }
+
+    function updateVaultImplementation(
+        address _vaultImplementation
+    ) public onlyAdmin {
+        vaultImplementation = _vaultImplementation;
+    }
+
+    function updateSchemaId(bytes32 _schemaId) public onlyAdmin {
+        schemaId = _schemaId;
+    }
 
     function createDropCollection(
         CreateDropInputParams memory inputParams
     ) public {
         address vaultAddress = _deployProxy(
-            i_vaultImplementation,
+            vaultImplementation,
             inputParams.salt
         );
-    
+
         address dropAddress = i_zoraNftFactory.createDrop(
             inputParams.name,
             inputParams.symbol,
@@ -67,26 +85,26 @@ contract AtestamintV2 {
             inputParams.metadataURIBase,
             inputParams.metadataContractURI
         );
-        bytes memory setupData=abi.encodeWithSelector(
-                    SETUP_VAULT_METHOD_ID,
-                   dropAddress,
-                   msg.sender,
-                   inputParams.editionSize
-                );
-        (bool success, ) =vaultAddress.call(setupData);
-        require(success,"Setup Failed");
-        emit DropCreated(msg.sender, dropAddress,vaultAddress);
+        bytes memory setupData = abi.encodeWithSelector(
+            SETUP_VAULT_METHOD_ID,
+            dropAddress,
+            msg.sender,
+            inputParams.editionSize,
+            schemaId
+        );
+        (bool success, ) = vaultAddress.call(setupData);
+        require(success, "Setup Failed");
+        emit DropCreated(msg.sender, dropAddress, vaultAddress);
     }
 
     function createEditionCollection(
         CreateEditionInputParams memory inputParams
     ) public {
-        
-  address vaultAddress = _deployProxy(
-            i_vaultImplementation,
+        address vaultAddress = _deployProxy(
+            vaultImplementation,
             inputParams.salt
         );
-  
+
         address editionAddress = i_zoraNftFactory.createEdition(
             inputParams.name,
             inputParams.symbol,
@@ -99,15 +117,16 @@ contract AtestamintV2 {
             inputParams.animationURI,
             inputParams.imageURI
         );
-        bytes memory setupData=abi.encodeWithSelector(
-                    SETUP_VAULT_METHOD_ID,
+        bytes memory setupData = abi.encodeWithSelector(
+            SETUP_VAULT_METHOD_ID,
             editionAddress,
-                   msg.sender,
-                   inputParams.editionSize
-                );
-        (bool success, ) =vaultAddress.call(setupData);
-        require(success,"Setup Failed");
-        emit EditionCreated(msg.sender, editionAddress,vaultAddress);
+            msg.sender,
+            inputParams.editionSize,
+            schemaId
+        );
+        (bool success, ) = vaultAddress.call(setupData);
+        require(success, "Setup Failed");
+        emit EditionCreated(msg.sender, editionAddress, vaultAddress);
     }
 
     function _deployProxy(

@@ -17,11 +17,11 @@ contract Vault is SchemaResolver {
     error InvalidNullifier();
 
     IEAS public immutable i_eas;
-    bytes32 public immutable i_schemaId;
 
     address public nftContract;
     address public creator;
-    address public atestamint;
+    address public immutable i_atestamint;
+    bytes32 public schemaId;
     uint public editionSize;
     bool public initialized;
     uint public positiveVotes = 0;
@@ -49,14 +49,14 @@ contract Vault is SchemaResolver {
         IWorldID _worldId,
         string memory _appId,
         string memory _actionId,
-        bytes32 schemaId
+        address _atestamint
     ) SchemaResolver(eas) {
         i_eas = eas;
-        i_schemaId = schemaId;
         worldId = _worldId;
         externalNullifier = abi
             .encodePacked(abi.encodePacked(_appId).hashToField(), _actionId)
             .hashToField();
+        i_atestamint = _atestamint;
     }
 
     modifier onlyOnce() {
@@ -68,12 +68,12 @@ contract Vault is SchemaResolver {
         address _nftContract,
         address _creator,
         uint256 _editionSize,
-        address _atestamint
+        bytes32 _schemaId
     ) public onlyOnce {
         nftContract = _nftContract;
-        atestamint = _atestamint;
         creator = _creator;
         editionSize = _editionSize;
+        schemaId = _schemaId;
         initialized = true;
     }
 
@@ -157,7 +157,7 @@ contract Vault is SchemaResolver {
         uint256 tokenId,
         uint256 nullifierHash
     ) internal view {
-        require(_schemaId == i_schemaId, "Invalid Schema");
+        require(_schemaId == schemaId, "Invalid Schema");
         require(
             IERC721(_nftContract).ownerOf(tokenId) == attester,
             "Not owner"
