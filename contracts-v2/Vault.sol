@@ -3,18 +3,25 @@ pragma solidity ^0.8.19;
 
 import {SchemaResolver} from "@ethereum-attestation-service/eas-contracts/contracts/resolver/SchemaResolver.sol";
 import {IEAS, Attestation, AttestationRequest, AttestationRequestData} from "@ethereum-attestation-service/eas-contracts/contracts/EAS.sol";
+import "@openzeppelin/contracts/utils/Create2.sol";
+import "./utils/Bytecode.sol";
+import {ByteHasher} from "./utils/ByteHasher.sol";
+import {IWorldID} from "./interface/IWorldID.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {SchemaResolver} from "@ethereum-attestation-service/eas-contracts/contracts/resolver/SchemaResolver.sol";
 
-contract Vault {
+contract Vault is SchemaResolver {
     using ByteHasher for bytes;
 
     /// @notice Thrown when attempting to reuse a nullifier
     error InvalidNullifier();
 
     IEAS public immutable i_eas;
-    address public immutable i_atestamint;
     bytes32 public immutable i_schemaId;
 
     address public nftContract;
+    address public creator;
+    address public atestamint;
     uint public editionSize;
     bool public initialized;
     uint public positiveVotes = 0;
@@ -25,32 +32,26 @@ contract Vault {
 
     IWorldID internal immutable worldId;
     uint256 internal immutable externalNullifier;
-    uint256 internal immutable groupId = 0;
+    uint256 internal immutable groupId = 1;
 
     event Voted(
         address voter,
         uint256 tokenId,
+        string description,
         uint256 nulllifierHash,
         bool isFor
     );
 
-    event FundsUnlocked(
-        address creator,
-        uint256 amount,
-        uint256 forVotes,
-        uint256 editionSize
-    );
+    event FundsUnlocked(uint256 amount, uint256 forVotes);
 
     constructor(
         IEAS eas,
         IWorldID _worldId,
         string memory _appId,
         string memory _actionId,
-        bytes32 schemaId,
-        address atestamint
+        bytes32 schemaId
     ) SchemaResolver(eas) {
         i_eas = eas;
-        i_atestamint = atestamint;
         i_schemaId = schemaId;
         worldId = _worldId;
         externalNullifier = abi
@@ -63,26 +64,84 @@ contract Vault {
         _;
     }
 
-    modifier onlyAtestamint() {
-        require(msg.sender == i_atestamint, "Inavlid sender");
-        _;
-    }
-
     function setup(
         address _nftContract,
-        address _safeAddress,
-        uint256 _editionSize
-    ) public onlyOnce onlyAtestamint {
+        address _creator,
+        uint256 _editionSize,
+        address _atestamint
+    ) public onlyOnce {
         nftContract = _nftContract;
-        safeAddress = _safeAddress;
+        atestamint = _atestamint;
+        creator = _creator;
         editionSize = _editionSize;
         initialized = true;
     }
 
+    event TestingData(
+        address _nftContract,
+        uint256 tokenId,
+        string description,
+        bool isPositive,
+        address signal,
+        uint256 root,
+        uint256 nullifierHash,
+        uint256[8] proof
+    );
+
     function onAttest(
         Attestation calldata attestation,
         uint256 /*value*/
-    ) internal view override returns (bool) {}
+    ) internal override returns (bool) {
+        (
+            address _nftContract,
+            uint256 tokenId,
+            string memory description,
+            bool isPositive,
+            address signal,
+            uint256 root,
+            uint256 nullifierHash,
+            uint256[8] memory proof
+        ) = abi.decode(
+                attestation.data,
+                (
+                    address,
+                    uint256,
+                    string,
+                    bool,
+                    address,
+                    uint256,
+                    uint256,
+                    uint256[8]
+                )
+            );
+        emit TestingData(
+            _nftContract,
+            tokenId,
+            description,
+            isPositive,
+            signal,
+            root,
+            nullifierHash,
+            proof
+        );
+        // _verifyConditions(
+        //     _nftContract,
+        //     attestation.attester,
+        //     attestation.schema,
+        //     tokenId,
+        //     nullifierHash
+        // );
+        // _verifyUniqueHuman(signal, root, nullifierHash, proof);
+        // tokenIdVoted[tokenId] = true;
+        // uniqueHumanVoted[nullifierHash] = true;
+        // if (isPositive == true) {
+        //     positiveVotes += 1;
+        // } else {
+        //     negativeVotes += 1;
+        // }
+        // emit Voted(msg.sender, tokenId, description, nullifierHash, isPositive);
+        // return true;
+    }
 
     function onRevoke(
         Attestation calldata /*attestation*/,
@@ -91,38 +150,27 @@ contract Vault {
         return true;
     }
 
-    function vote(
-        AttestationRequest calldata request,
+    function _verifyConditions(
+        address _nftContract,
+        address attester,
+        bytes32 _schemaId,
         uint256 tokenId,
-        Vote _vote,
-        address signal,
-        uint256 root,
-        uint256 nullifierHash,
-        uint256[8] calldata proof
-    ) public {
-        require(uniqueHumanVoted[nullifierHash] == false, "Unique Human voted");
+        uint256 nullifierHash
+    ) internal view {
+        require(_schemaId == i_schemaId, "Invalid Schema");
         require(
-            IERC721(nftContract).ownerOf(tokenId) == msg.sender,
+            IERC721(_nftContract).ownerOf(tokenId) == attester,
             "Not owner"
         );
         require(tokenIdVoted[tokenId] == false, "Token voted");
-
-        verifyWorldCoin(root, signal, nullifierHash, proof);
-
-        i_eas.attest(request);
-        tokenIdVoted[tokenId] = true;
-        uniqueHumanVoted[nullifierHash] = true;
-        if (_vote == Vote.For) {
-            forVotes += 1;
-        }
-        emit Voted(msg.sender, tokenId, nullifierHash, _vote);
+        require(uniqueHumanVoted[nullifierHash] == false, "Unique Human voted");
     }
 
-    function verifyWorldCoin(
-        uint256 root,
+    function _verifyUniqueHuman(
         address signal,
+        uint256 root,
         uint256 nullifierHash,
-        uint256[8] calldata proof
+        uint256[8] memory proof
     ) public {
         worldId.verifyProof(
             root,
@@ -156,26 +204,10 @@ contract Vault {
     }
 
     function unlockFunds() public {
-        uint editionSize = IGetConfigZora(nftContract).config().editionSize;
-        address creator = getCreator();
-        require(forVotes > editionSize / 2, "Not owner");
-
-        GnosisSafe(safeAddress).execTransactionFromModule(
-            creator,
-            safeAddress.balance,
-            "",
-            Enum.Operation.Call
-        );
-
-        emit FundsUnlocked(creator, safeAddress.balance, forVotes, editionSize);
-    }
-
-    function getCreator() public view returns (address) {
-        uint256 length = address(this).code.length;
-        return
-            abi.decode(
-                Bytecode.codeAt(address(this), length - 0x20, length),
-                (address)
-            );
+        require(positiveVotes > editionSize / 2, "Criteria not met");
+        uint totalFunds = address(this).balance;
+        (bool success, ) = creator.call{value: address(this).balance}("");
+        require(success, "Transfer Failed");
+        emit FundsUnlocked(totalFunds, positiveVotes);
     }
 }
