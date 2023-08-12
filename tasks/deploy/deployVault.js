@@ -15,14 +15,17 @@ task("deploy-vault", "Deploys Vault contract ").setAction(
     const appId = "app_staging_8ba6b6491a27ba84a2255bcde4bcd3f3";
     const actionId = "atestamint";
     const atestamint = "0x2f5b7835B0346201821D285295c0502a64ed391F";
+    const schemaId =
+      "0xae694f9e713ed68fabb42e4d75e15282c1db63887a06df4a78ca3c91a444fc14";
     const vaultContract = await vault.deploy(
       eas,
       worldId,
       appId,
       actionId,
       atestamint,
+      schemaId,
       {
-        gasPrice: 200000,
+        gasPrice: 50000,
       }
     );
 
@@ -37,7 +40,14 @@ task("deploy-vault", "Deploys Vault contract ").setAction(
     try {
       await run("verify:verify", {
         address: vaultContract.address,
-        constructorArguments: [eas, worldId, appId, actionId, atestamint],
+        constructorArguments: [
+          eas,
+          worldId,
+          appId,
+          actionId,
+          atestamint,
+          schemaId,
+        ],
       });
       console.log("Contract verified");
     } catch (error) {
