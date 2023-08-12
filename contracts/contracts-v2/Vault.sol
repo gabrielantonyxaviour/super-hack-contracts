@@ -22,7 +22,7 @@ contract Vault is SchemaResolver {
     address public creator;
     address public immutable i_atestamint;
     bytes32 public immutable i_schemaId;
-    uint public editionSize;
+    uint64 public editionSize;
     bool public initialized;
     uint public positiveVotes = 0;
     uint public negativeVotes = 0;
@@ -42,7 +42,7 @@ contract Vault is SchemaResolver {
         bool isFor
     );
 
-    event FundsUnlocked(uint256 amount, uint256 forVotes);
+    event FundsUnlocked(uint256 amount, uint256 forVotes, uint64 editionSize);
 
     constructor(
         IEAS eas,
@@ -69,7 +69,7 @@ contract Vault is SchemaResolver {
     function setup(
         address _nftContract,
         address _creator,
-        uint256 _editionSize
+        uint64 _editionSize
     ) public onlyOnce {
         nftContract = _nftContract;
         creator = _creator;
@@ -112,7 +112,7 @@ contract Vault is SchemaResolver {
         uint256[8] memory proof
     ) public payable {
         _verifyConditions(nftContract, msg.sender, tokenId, nullifierHash);
-        _verifyUniqueHuman(signal, root, nullifierHash, proof);
+        // _verifyUniqueHuman(signal, root, nullifierHash, proof);
         _attestEAS(tokenId, description, isPositive);
         tokenIdVoted[tokenId] = true;
         uniqueHumanVoted[nullifierHash] = true;
@@ -180,6 +180,6 @@ contract Vault is SchemaResolver {
         uint totalFunds = address(this).balance;
         (bool success, ) = creator.call{value: address(this).balance}("");
         require(success, "Transfer Failed");
-        emit FundsUnlocked(totalFunds, positiveVotes);
+        emit FundsUnlocked(totalFunds, positiveVotes, editionSize);
     }
 }

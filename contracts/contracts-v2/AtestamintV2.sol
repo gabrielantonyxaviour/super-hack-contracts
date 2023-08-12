@@ -8,6 +8,7 @@ contract AtestamintV2 {
     address public vaultImplementation;
     address public admin;
     bytes32 public schemaId;
+    uint256 public nonce;
 
     struct CreateDropInputParams {
         string name;
@@ -17,7 +18,6 @@ contract AtestamintV2 {
         IERC721Drop.SalesConfiguration saleConfig;
         string metadataURIBase;
         string metadataContractURI;
-        uint salt;
     }
 
     struct CreateEditionInputParams {
@@ -29,7 +29,7 @@ contract AtestamintV2 {
         string description;
         string animationURI;
         string imageURI;
-        uint salt;
+        string metadataContractURI;
     }
 
     bytes4 public constant SETUP_VAULT_METHOD_ID =
@@ -38,17 +38,22 @@ contract AtestamintV2 {
     constructor(IZoraFactory zoraNftFactory) {
         i_zoraNftFactory = zoraNftFactory;
         admin = msg.sender;
+        nonce = 0;
     }
 
     event EditionCreated(
         address creator,
         address editionAddress,
-        address vaultAddress
+        address vaultAddress,
+        uint64 editionSize,
+        string metadataContractURI
     );
     event DropCreated(
         address creator,
         address dropAddress,
-        address vaultAddress
+        address vaultAddress,
+        uint64 editionSize,
+        string metadataContractURI
     );
 
     modifier onlyAdmin() {
@@ -69,10 +74,7 @@ contract AtestamintV2 {
     function createDropCollection(
         CreateDropInputParams memory inputParams
     ) public {
-        address vaultAddress = _deployProxy(
-            vaultImplementation,
-            inputParams.salt
-        );
+        address vaultAddress = _deployProxy(vaultImplementation, nonce);
 
         address dropAddress = i_zoraNftFactory.createDrop(
             inputParams.name,
@@ -94,16 +96,20 @@ contract AtestamintV2 {
         );
         (bool success, ) = vaultAddress.call(setupData);
         require(success, "Setup Failed");
-        emit DropCreated(msg.sender, dropAddress, vaultAddress);
+        nonce += 1;
+        emit DropCreated(
+            msg.sender,
+            dropAddress,
+            vaultAddress,
+            inputParams.editionSize,
+            inputParams.metadataContractURI
+        );
     }
 
     function createEditionCollection(
         CreateEditionInputParams memory inputParams
     ) public {
-        address vaultAddress = _deployProxy(
-            vaultImplementation,
-            inputParams.salt
-        );
+        address vaultAddress = _deployProxy(vaultImplementation, nonce);
 
         address editionAddress = i_zoraNftFactory.createEdition(
             inputParams.name,
@@ -126,7 +132,14 @@ contract AtestamintV2 {
         );
         (bool success, ) = vaultAddress.call(setupData);
         require(success, "Setup Failed");
-        emit EditionCreated(msg.sender, editionAddress, vaultAddress);
+        nonce += 1;
+        emit EditionCreated(
+            msg.sender,
+            editionAddress,
+            vaultAddress,
+            inputParams.editionSize,
+            inputParams.metadataContractURI
+        );
     }
 
     function _deployProxy(
