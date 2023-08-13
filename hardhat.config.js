@@ -68,6 +68,7 @@ module.exports = {
       goerli: networks.goerli.verifyApiKey,
       polygonMumbai: networks.polygonMumbai.verifyApiKey,
       optimisticGoerli: networks.optimisticGoerli.verifyApiKey,
+      optimisticEthereum: networks.optimisticEthereum.verifyApiKey,
     },
   },
   gasReporter: {
