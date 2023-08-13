@@ -33,7 +33,7 @@ contract AtestamintV2 {
     }
 
     bytes4 public constant SETUP_VAULT_METHOD_ID =
-        bytes4(keccak256("setup(address,address,uint256,address,bytes32)"));
+        bytes4(keccak256("setup(address,address,uint64)"));
 
     constructor(IZoraFactory zoraNftFactory) {
         i_zoraNftFactory = zoraNftFactory;
@@ -46,6 +46,7 @@ contract AtestamintV2 {
         address editionAddress,
         address vaultAddress,
         uint64 editionSize,
+        string imageURI,
         string metadataContractURI
     );
     event DropCreated(
@@ -53,6 +54,7 @@ contract AtestamintV2 {
         address dropAddress,
         address vaultAddress,
         uint64 editionSize,
+        string metadataURIBase,
         string metadataContractURI
     );
 
@@ -102,6 +104,7 @@ contract AtestamintV2 {
             dropAddress,
             vaultAddress,
             inputParams.editionSize,
+            inputParams.metadataURIBase,
             inputParams.metadataContractURI
         );
     }
@@ -127,8 +130,7 @@ contract AtestamintV2 {
             SETUP_VAULT_METHOD_ID,
             editionAddress,
             msg.sender,
-            inputParams.editionSize,
-            schemaId
+            inputParams.editionSize
         );
         (bool success, ) = vaultAddress.call(setupData);
         require(success, "Setup Failed");
@@ -138,6 +140,7 @@ contract AtestamintV2 {
             editionAddress,
             vaultAddress,
             inputParams.editionSize,
+            inputParams.imageURI,
             inputParams.metadataContractURI
         );
     }
@@ -145,7 +148,7 @@ contract AtestamintV2 {
     function _deployProxy(
         address implementation,
         uint salt
-    ) public returns (address _contractAddress) {
+    ) internal returns (address _contractAddress) {
         bytes memory code = _creationCode(implementation, salt);
         _contractAddress = Create2.computeAddress(
             bytes32(salt),

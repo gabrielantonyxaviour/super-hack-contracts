@@ -14,7 +14,7 @@ task("deploy-vault", "Deploys Vault contract ").setAction(
     const worldId = "0x515f06B36E6D3b707eAecBdeD18d8B384944c87f";
     const appId = "app_staging_8ba6b6491a27ba84a2255bcde4bcd3f3";
     const actionId = "atestamint";
-    const atestamint = "0x2f5b7835B0346201821D285295c0502a64ed391F";
+    const atestamint = "0x0AE7d655Cda406c5b73Ea76855e2cE6aC3812a8E";
     const schemaId =
       "0xae694f9e713ed68fabb42e4d75e15282c1db63887a06df4a78ca3c91a444fc14";
     const vaultContract = await vault.deploy(

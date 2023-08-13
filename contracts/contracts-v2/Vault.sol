@@ -77,17 +77,6 @@ contract Vault is SchemaResolver {
         initialized = true;
     }
 
-    event TestingData(
-        address _nftContract,
-        uint256 tokenId,
-        string description,
-        bool isPositive,
-        address signal,
-        uint256 root,
-        uint256 nullifierHash,
-        uint256[8] proof
-    );
-
     function onAttest(
         Attestation calldata attestation,
         uint256 /*value*/
@@ -112,7 +101,7 @@ contract Vault is SchemaResolver {
         uint256[8] memory proof
     ) public payable {
         _verifyConditions(nftContract, msg.sender, tokenId, nullifierHash);
-        // _verifyUniqueHuman(signal, root, nullifierHash, proof);
+        _verifyUniqueHuman(signal, root, nullifierHash, proof);
         _attestEAS(tokenId, description, isPositive);
         tokenIdVoted[tokenId] = true;
         uniqueHumanVoted[nullifierHash] = true;
@@ -176,7 +165,7 @@ contract Vault is SchemaResolver {
     }
 
     function unlockFunds() public {
-        require(positiveVotes > editionSize / 2, "Criteria not met");
+        require(positiveVotes >= editionSize / 2, "Criteria not met");
         uint totalFunds = address(this).balance;
         (bool success, ) = creator.call{value: address(this).balance}("");
         require(success, "Transfer Failed");
