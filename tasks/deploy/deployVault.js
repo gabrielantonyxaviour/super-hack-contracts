@@ -10,11 +10,10 @@ task("deploy-vault", "Deploys Vault contract ").setAction(
       );
     }
     const vault = await ethers.getContractFactory("Vault");
-    const eas = "0x4200000000000000000000000000000000000021";
-    const worldId = "0x515f06B36E6D3b707eAecBdeD18d8B384944c87f";
-    const appId = "app_staging_8ba6b6491a27ba84a2255bcde4bcd3f3";
+    const eas = networks[network.name].EAS_DEPLOYMENT;
+    const worldId = networks[network.name].WORLDID_ROUTER;
+    const appId = process.env.WORLDCOIN_APP_ID;
     const actionId = "atestamint";
-    const atestamint = "0x0AE7d655Cda406c5b73Ea76855e2cE6aC3812a8E";
     const schemaId =
       "0xae694f9e713ed68fabb42e4d75e15282c1db63887a06df4a78ca3c91a444fc14";
     const vaultContract = await vault.deploy(
@@ -22,7 +21,7 @@ task("deploy-vault", "Deploys Vault contract ").setAction(
       worldId,
       appId,
       actionId,
-      atestamint,
+      taskArgs.atestamint,
       schemaId,
       {
         gasPrice: 50000,

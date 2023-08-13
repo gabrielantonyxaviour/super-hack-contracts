@@ -11,7 +11,7 @@ task("deploy-atestamint-v2", "Deploys AtestamintV2 contract").setAction(
     }
     const zora = await ethers.getContractFactory("AtestamintV2");
     const zoraFactory = networks[network.name].ZORA_NFT_CREATOR_PROXY;
-    const zoraContract = await zora.deploy(zoraFactory, { gasPrice: 300000 });
+    const zoraContract = await zora.deploy(zoraFactory, { gasPrice: 100000 });
     console.log(
       `\nWaiting 3 blocks for transaction ${zoraContract.deployTransaction.hash} to be confirmed...`
     );
