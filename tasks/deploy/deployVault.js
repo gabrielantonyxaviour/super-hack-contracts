@@ -1,7 +1,8 @@
 const { networks } = require("../../networks");
 
-task("deploy-vault", "Deploys Vault contract ").setAction(
-  async (taskArgs, hre) => {
+task("deploy-vault", "Deploys Vault contract ")
+  .addParam("atestamint", "The address of the Attestamint contract")
+  .setAction(async (taskArgs, hre) => {
     console.log(`Deploying Vault contract to ${network.name}`);
 
     if (network.name === "hardhat") {
@@ -44,7 +45,7 @@ task("deploy-vault", "Deploys Vault contract ").setAction(
           worldId,
           appId,
           actionId,
-          atestamint,
+          taskArgs.atestamint,
           schemaId,
         ],
       });
@@ -62,5 +63,4 @@ task("deploy-vault", "Deploys Vault contract ").setAction(
     console.log(
       `Vault deployed to ${vaultContract.address} on ${network.name}`
     );
-  }
-);
+  });

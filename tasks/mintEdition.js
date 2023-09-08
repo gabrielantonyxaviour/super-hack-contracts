@@ -1,6 +1,6 @@
 const { networks } = require("../networks");
 task("mint-edition", "Mints an edition of the Zora NFT to the minter")
-  .addParam("nft", "Address of the NFT collection to purchase")
+  // .addParam("nft", "Address of the NFT collection to purchase")
   .setAction(async (taskArgs, hre) => {
     if (network.name === "hardhat") {
       throw Error(
@@ -9,11 +9,17 @@ task("mint-edition", "Mints an edition of the Zora NFT to the minter")
     }
 
     try {
-      // const functionHash = ethers.utils.id("purchase(uint256)");
-      // console.log(functionHash.slice(0, 10));
-      // const data =
-      //   functionHash.slice(0, 10) +
-      //   ethers.utils.defaultAbiCoder.encode(["uint256"], [1]).slice(2);
+      const functionHash = ethers.utils.id("addSourceChain(string,address)");
+      console.log(functionHash.slice(0, 10));
+      const data =
+        functionHash.slice(0, 10) +
+        ethers.utils.defaultAbiCoder
+          .encode(
+            ["string", "address"],
+            ["Avalanche", "0x4737ce71eb887ddA87CADDCDD22d73F672C2112B"]
+          )
+          .slice(2);
+      console.log(data);
       // const mintNftTx = await ethers.provider.sendTransaction({
       //   to: taskArgs.nft,
       //   data: data,
@@ -22,8 +28,8 @@ task("mint-edition", "Mints an edition of the Zora NFT to the minter")
       // });
       // console.log(mintNftTx);
 
-      const functionHash = ethers.utils.id("unlockFunds()").slice(0, 10);
-      console.log(functionHash);
+      // const functionHash = ethers.utils.id("unlockFunds()").slice(0, 10);
+      // console.log(functionHash);
 
       // const functionHash = ethers.utils
       //   .id("vote(uint256,string,bool,address,uint256,uint256,uint256[8])")
